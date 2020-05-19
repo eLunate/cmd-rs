@@ -1,5 +1,5 @@
 [package]
-name = "cmd-rs"
+name = "cmd"
 version = "0.1.0"
 authors = ["Skye <eLunate@users.noreply.github.com>"]
 edition = "2018"
