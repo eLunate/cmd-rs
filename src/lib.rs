@@ -22,6 +22,7 @@ enum Tokens<'source> {
     LongFlag(&'source str),
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Args<'a> {
     pub kwargs: HashMap<&'a str, &'a str>,
     pub args: Vec<&'a str>,
