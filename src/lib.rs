@@ -11,18 +11,18 @@ enum Tokens<'source> {
     #[error]
     Error,
 
-    #[regex("\\-[a-zA-Z]+", |lex| lex.slice()[1..].chars())]
+    #[regex("\\-[a-zA-Z0-9]+", |lex| lex.slice()[1..].chars())]
     Flags(Chars<'source>),
 
     #[regex("\"[^\"]*\"", |lex| {let slice = lex.slice(); &slice[1..slice.len()-1]})]
-    #[regex("[^\n\t \r\"]+")]
+    #[regex("[^\n\t \r\"-]+")]
     ArgStr(&'source str),
 
-    #[regex("\\-\\-[a-zA-Z]+", |lex| &lex.slice()[2..])]
+    #[regex("\\-\\-[a-zA-Z0-9]+", |lex| &lex.slice()[2..])]
     LongFlag(&'source str),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct Args<'a> {
     pub kwargs: HashMap<&'a str, &'a str>,
     pub args: Vec<&'a str>,
@@ -58,5 +58,64 @@ impl<'a> Args<'a> {
             args,
             flags,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Args;
+    use std::collections::HashMap;
+    use std::iter::FromIterator;
+    use std::default::Default;
+
+    #[test]
+    fn test_positional_simple() {
+        assert_eq!(Args::parse("a b c d e"), Ok(Args {
+            args: Vec::from(&["a", "b", "c", "d", "e"][..]), // Thanks Rust?
+            ..Default::default()
+        }));
+    }
+
+    #[test]
+    fn test_positional_long() {
+        assert_eq!(Args::parse(r#"a b "c d" e"#), Ok(Args {
+            args: Vec::from(&["a", "b", "c d", "e"][..]),
+            ..Default::default()
+        }));
+    }
+
+    #[test]
+    fn test_incomplete_long() {
+        assert_eq!(Args::parse("a b \"c d"), Err(()));
+    }
+
+    #[test]
+    fn test_kwargs() {
+        assert_eq!(Args::parse(r#"--arg1 a --arg2 "b c""#), Ok(Args {
+            kwargs: HashMap::from_iter([("arg1", "a"), ("arg2", "b c")].iter().copied()),
+            ..Default::default()
+        }));
+    }
+
+    #[test]
+    fn test_incomplete_kwarg() {
+        assert_eq!(Args::parse("--arg1 a --arg2"), Err(()));
+    }
+
+    #[test]
+    fn test_flags() {
+        assert_eq!(Args::parse("-flag -vvv"), Ok(Args {
+            flags: HashMap::from_iter([('f', 1),('l', 1),('a',1),('g',1),('v',3)].iter().copied()),
+            ..Default::default()
+        }))
+    }
+
+    #[test]
+    fn test_all() {
+        assert_eq!(Args::parse(r#"short "long arg" --kw1 arg -vvv"#), Ok(Args {
+            args: Vec::from(&["short", "long arg"][..]),
+            kwargs: HashMap::from_iter([("kw1", "arg")].iter().copied()),
+            flags: HashMap::from_iter([('v', 3)].iter().copied())
+        }))
     }
 }
